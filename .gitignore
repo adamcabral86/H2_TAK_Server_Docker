@@ -1,0 +1,25 @@
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+.settings/
+
+# Local deployment secrets/config — copy deploy/docker/env.example to .env instead
+deploy/docker/.env
+deploy/docker/**/.env
+
+# Vendor download and generated staging tree
+deploy/docker/vendor/*
+!deploy/docker/vendor/.gitignore
+deploy/docker/staging/*
+!deploy/docker/staging/.gitignore
+
+# Upgrade backups / state
+deploy/docker/backups/
+deploy/docker/.last-upgrade-state
+deploy/docker/renew-tak-le.sh
+deploy/docker/certbot-tak-le.cron
+
+# Packaged deployable bundles built from this repo
+/dist/

@@ -1,0 +1,8 @@
+# Force LF line endings for everything text, regardless of any given
+# machine's core.autocrlf setting — a Windows checkout (or `git archive`,
+# which applies the same conversion) can otherwise produce CRLF-corrupted
+# shell scripts, breaking bash on Linux deploy targets (e.g. a bare
+# `set -euo pipefail` failing with "pipefail: invalid option name" because
+# of a stray trailing \r). Git normalizes to LF in the repo either way;
+# this only controls what checkout/archive hand back out.
+* text=auto eol=lf
