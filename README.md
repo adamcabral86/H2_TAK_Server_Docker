@@ -13,13 +13,16 @@ the scope doc); nothing here depends on it yet.
 ```
 H2_TAK_Server_Docker/
 ├── STANDALONE_GATEWAY_SCOPE.md   # Scoping notes for the future standalone gateway service
+├── scripts/
+│   ├── test_tak_connection.py   # mTLS connection test — sends one CoT via the service account cert
+│   └── requirements.txt         # pip install -r scripts/requirements.txt (just `cryptography`)
 └── deploy/
     └── docker/
         ├── docker-compose.yml    # Generic — version driven entirely by TAK_RELEASE in .env
         ├── env.example           # Copy to .env and edit
         ├── prepare-tak-docker.sh # Unpack the vendor zip into staging/
         ├── init-tak-config.sh    # Runs once in the init container: certs + CoreConfig.xml
-        ├── post-start.sh         # Post-up provisioning (certs, admin, Let's Encrypt)
+        ├── post-start.sh         # Post-up provisioning (certs, admin, service account, Let's Encrypt)
         ├── deploy.sh             # docker compose up -d --build + post-start.sh, one step
         ├── upgrade-tak-docker.sh # Automated in-place upgrade to a newer TAK release
         ├── apply-letsencrypt.sh  # Let's Encrypt for the :8446 password/enrollment port
