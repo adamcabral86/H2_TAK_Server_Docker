@@ -185,12 +185,29 @@ finishes, you'll find:
 ```
 ~/takserver-certs/gateway-svc.p12   # cert + key, password = CERT_PASS
 ~/takserver-certs/gateway-svc.pem   # cert only
+~/takserver-certs/ca.pem            # root CA — needed too, see below
 ```
 
-Hand `gateway-svc.p12` (and `CERT_PASS`) to whatever service needs it — most
-TLS libraries can load a `.p12`/PKCS12 bundle directly as a client cert. It
-authenticates the same way `admin.p12` does at `https://<host>:8443/Marti/`
-or on the CoT stream at `<host>:8089`.
+mTLS is two-way trust, so the service needs more than just its own cert:
+
+| File | Purpose |
+|---|---|
+| `gateway-svc.p12` | The service's own identity (cert + key) |
+| `ca.pem` | Root CA — lets the service's TLS client trust *TAK Server's* cert during the handshake |
+| `CERT_PASS` | Password on the `.p12` |
+
+Use `ca.pem`, **not** `certs/files/${CERT_CA_CN}.pem` (e.g. `TAK-CA-01.pem`) —
+that intermediate CA only signs enrollment-issued certs (the WinTAK/ATAK
+self-enrollment flow on 8446); every cert `makeCert.sh` creates directly
+(`gateway-svc`, `admin`, and the `takserver.jks` server cert itself) is
+signed by the root (`ca.pem`) instead — `init-tak-config.sh` deliberately
+declines `makeCert.sh`'s "sign future certs with this new CA?" prompt when
+creating the intermediate, precisely so it stays enrollment-only.
+
+Most TLS libraries can load `gateway-svc.p12` directly as a client cert and
+take `ca.pem` as a separate trusted-CA option. It authenticates the same way
+`admin.p12` does at `https://<host>:8443/Marti/` or on the CoT stream at
+`<host>:8089`.
 
 **If it turns out full admin is more than the integration actually needs**,
 scope it down after the fact in the admin UI (Users → find the cert → adjust
