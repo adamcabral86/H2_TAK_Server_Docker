@@ -32,6 +32,8 @@ services:
       ENABLE_FEDERATION: ${ENABLE_FEDERATION:-true}
       ENABLE_TLS: ${ENABLE_TLS:-true}
       ENABLE_PLAINTEXT_TAK: ${ENABLE_PLAINTEXT_TAK:-false}
+      ENABLE_SERVICE_ACCOUNT: ${ENABLE_SERVICE_ACCOUNT:-true}
+      CERT_SERVICE_CN: ${CERT_SERVICE_CN:-gateway-svc}
       CERT_PASS: ${CERT_PASS:-atakatak}
       DB_PASS: ${DB_PASS:-TakDbPass123}
       LE_FQDN: ${LE_FQDN:-}

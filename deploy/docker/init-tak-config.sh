@@ -25,6 +25,8 @@ ENABLE_STORE_FORWARD_CHAT="${ENABLE_STORE_FORWARD_CHAT:-true}"
 ENABLE_FEDERATION="${ENABLE_FEDERATION:-true}"
 ENABLE_TLS="${ENABLE_TLS:-true}"
 ENABLE_PLAINTEXT_TAK="${ENABLE_PLAINTEXT_TAK:-false}"
+ENABLE_SERVICE_ACCOUNT="${ENABLE_SERVICE_ACCOUNT:-true}"
+SERVICE_CN="${CERT_SERVICE_CN:-gateway-svc}"
 
 echo "[init] TAK_ROOT=$TAK_ROOT"
 
@@ -56,6 +58,19 @@ else
     echo "[init] Creating intermediate CA $CA_CN for certificate enrollment..."
     printf 'n\n' | ./makeCert.sh ca "$CA_CN"
   fi
+fi
+
+# Service/API account cert — a non-interactive client identity for code that
+# talks to TAK Server directly (Marti REST API on 8443, or the CoT stream on
+# 8089), as opposed to a human logging into the admin UI. Generated here
+# (idempotent, outside the first-run-only block above) so setting
+# ENABLE_SERVICE_ACCOUNT=true on an *existing* deployment and re-running
+# still creates it without regenerating the CA/server/admin certs.
+# Promoting it to ROLE_ADMIN happens later, in post-start.sh — UserManager.jar
+# needs the database up, which this cert-only init container never has.
+if [[ "$ENABLE_SERVICE_ACCOUNT" == "true" ]] && [[ ! -f "$FILES/${SERVICE_CN}.p12" ]]; then
+  echo "[init] Generating service account certificate ($SERVICE_CN)..."
+  ./makeCert.sh client "$SERVICE_CN"
 fi
 
 # Enrollment clients are signed by ${CA_CN}; WinTAK often sends only the leaf cert,

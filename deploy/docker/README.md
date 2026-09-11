@@ -13,12 +13,13 @@ For the bare command sequence with no explanation, see [QUICKSTART.md](QUICKSTAR
 5. [Configure the environment](#5-configure-the-environment)
 6. [Deploy](#6-deploy)
 7. [Log in](#7-log-in)
-8. [Optional: add another admin account](#8-optional-add-another-admin-account)
-9. [Optional: federation](#9-optional-federation)
-10. [Optional: re-run or renew Let's Encrypt](#10-optional-re-run-or-renew-lets-encrypt)
-11. [Optional: plaintext CoT for packet captures](#11-optional-plaintext-cot-for-packet-captures)
-12. [Tear down](#12-tear-down)
-13. [Troubleshooting](#13-troubleshooting)
+8. [Service/API account for programmatic access](#8-serviceapi-account-for-programmatic-access)
+9. [Optional: add another admin account](#9-optional-add-another-admin-account)
+10. [Optional: federation](#10-optional-federation)
+11. [Optional: re-run or renew Let's Encrypt](#11-optional-re-run-or-renew-lets-encrypt)
+12. [Optional: plaintext CoT for packet captures](#12-optional-plaintext-cot-for-packet-captures)
+13. [Tear down](#13-tear-down)
+14. [Troubleshooting](#14-troubleshooting)
 
 ---
 
@@ -108,8 +109,8 @@ Key values to review:
 | `HOST_PORT_*` | Host-side port mappings (change only if you have conflicts) |
 | `DB_VOLUME` | Name of the Docker volume PostgreSQL data lives in — leave as-is unless you're upgrading across a Postgres major version (see [AUTO_UPGRADE.md](AUTO_UPGRADE.md)) |
 | `LE_ENABLE`, `LE_FQDN`, `LE_EMAIL` | Set `LE_ENABLE=true` and fill in your domain/email to get a Let's Encrypt certificate on port 8446 automatically |
-| `ENABLE_FEDERATION` | Wires `<federation>` into CoreConfig so ports 9000/9001/8444 actually work (default `true`) — see [step 9](#9-optional-federation) |
-| `ENABLE_TLS` / `ENABLE_PLAINTEXT_TAK` | Independent CoT listener toggles — `ENABLE_TLS=true` (default) keeps 8089/TLS, `ENABLE_PLAINTEXT_TAK=true` adds 8087 plaintext. Both can be on at once — see [step 11](#11-optional-plaintext-cot-for-packet-captures) |
+| `ENABLE_FEDERATION` | Wires `<federation>` into CoreConfig so ports 9000/9001/8444 actually work (default `true`) — see [step 10](#10-optional-federation) |
+| `ENABLE_TLS` / `ENABLE_PLAINTEXT_TAK` | Independent CoT listener toggles — `ENABLE_TLS=true` (default) keeps 8089/TLS, `ENABLE_PLAINTEXT_TAK=true` adds 8087 plaintext. Both can be on at once — see [step 12](#12-optional-plaintext-cot-for-packet-captures) |
 
 > **Why this matters:** unlike a bare-metal install, setting `ADMIN_PASSWORD` here means [step 6](#6-deploy) sets the password for you automatically — no manual `UserManager.jar` command needed afterward.
 
@@ -164,7 +165,46 @@ rather run them individually.
 
 ---
 
-## 8. Optional: add another admin account
+## 8. Service/API account for programmatic access
+
+Deploy automatically creates a second, non-human client certificate for code
+that talks to TAK Server directly — the Marti REST API on 8443, or the CoT
+stream on 8089 (both mTLS) — separate from the `admin` cert above so a
+service credential can be rotated or revoked without touching anyone's
+personal login. Controlled by two `.env` vars:
+
+| Variable | Purpose |
+|---|---|
+| `ENABLE_SERVICE_ACCOUNT` | Create it at all (default `true`) |
+| `CERT_SERVICE_CN` | Its common name / file basename (default `gateway-svc`) |
+
+It's promoted to **ROLE_ADMIN** — the same privilege the human `admin`
+account has — because it needs full Marti API access. Once [step 6](#6-deploy)
+finishes, you'll find:
+
+```
+~/takserver-certs/gateway-svc.p12   # cert + key, password = CERT_PASS
+~/takserver-certs/gateway-svc.pem   # cert only
+```
+
+Hand `gateway-svc.p12` (and `CERT_PASS`) to whatever service needs it — most
+TLS libraries can load a `.p12`/PKCS12 bundle directly as a client cert. It
+authenticates the same way `admin.p12` does at `https://<host>:8443/Marti/`
+or on the CoT stream at `<host>:8089`.
+
+**If it turns out full admin is more than the integration actually needs**,
+scope it down after the fact in the admin UI (Users → find the cert → adjust
+role) rather than at generation time — `certmod -A` here is just "grant admin
+now," and TAK's permission model isn't re-run automatically on every login.
+
+Re-running `bash post-start.sh` (or `bash deploy.sh`) is safe if you change
+`CERT_SERVICE_CN` or re-enable this on an existing deployment — it only
+creates/promotes what's missing, same as the admin account and CoT-input
+toggles elsewhere in this doc.
+
+---
+
+## 9. Optional: add another admin account
 
 ```bash
 docker exec takserver bash -c "cd /opt/tak/certs && ./makeCert.sh client admin2"
@@ -180,7 +220,7 @@ docker exec -e TAK_ADMIN_USER=admin2 -e TAK_ADMIN_PASSWORD='YourStrongPassword12
 
 ---
 
-## 9. Optional: federation
+## 10. Optional: federation
 
 Federation ports (`8444`, `9000`, `9001`) are published by default, and `ENABLE_FEDERATION=true` (the default) wires the `<federation>` block into CoreConfig at install time — open the ports in your firewall/security group to peer TAK servers.
 
@@ -191,7 +231,7 @@ Federation ports (`8444`, `9000`, `9001`) are published by default, and `ENABLE_
 
 ---
 
-## 10. Optional: re-run or renew Let's Encrypt
+## 11. Optional: re-run or renew Let's Encrypt
 
 If you didn't set `LE_ENABLE=true` initially, or need to re-issue a certificate later:
 
@@ -203,7 +243,7 @@ Requires `LE_FQDN` and `LE_EMAIL` set in `.env`, a public DNS record pointing at
 
 ---
 
-## 11. Optional: plaintext CoT for packet captures
+## 12. Optional: plaintext CoT for packet captures
 
 By default the CoT listener on 8089 uses TLS, so a Wireshark capture just shows encrypted bytes. `ENABLE_TLS` and `ENABLE_PLAINTEXT_TAK` are independent switches, so you can add a plaintext listener on 8087 alongside 8089 rather than replacing it — normal clients keep using 8089, and a test client on 8087 gives you readable CoT XML in the capture. ATAK/WinTAK connected to 8087 still see each other normally (it uses TAK's `protocol="stcp"` bidirectional streaming input, not plain `protocol="tcp"` — the latter is publish-only in TAK Server and won't broadcast CoT between clients).
 
@@ -221,7 +261,7 @@ Re-running `post-start.sh` after the edit adds/removes the CoreConfig `<input>` 
 
 ---
 
-## 12. Tear down
+## 13. Tear down
 
 ```bash
 docker compose --env-file .env down
@@ -263,13 +303,13 @@ This also removes certs and `UserAuthenticationFile.xml`, so the next `bash depl
 
 ---
 
-## 13. Troubleshooting
+## 14. Troubleshooting
 
 - **Container status:** `docker compose --env-file .env ps`
 - **TAK logs:** `docker exec takserver tail -f /opt/tak/logs/takserver-messaging.log /opt/tak/logs/takserver-api.log`
 - **Init container failed:** `docker compose --env-file .env logs init`
 - **Re-run setup:** `bash post-start.sh` is safe to run again if something didn't complete
-- **Start over:** [tear down](#12-tear-down), then repeat from [step 6](#6-deploy)
+- **Start over:** [tear down](#13-tear-down), then repeat from [step 6](#6-deploy)
 - **Build fails with `unable to prepare context: path "staging/<release>" not found`:** the staged release directory exists but your user can't read it — either it's owned by a different user (e.g. root, from a `sudo bash prepare-tak-docker.sh` run) or, less commonly, the vendor zip stored it without the execute/traverse bit. `prepare-tak-docker.sh` normalizes this automatically as of this package; if you're still hitting it, fix it directly and retry:
   ```bash
   sudo chown -R "$(id -un):$(id -gn)" staging/<release>

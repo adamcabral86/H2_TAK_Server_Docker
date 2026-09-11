@@ -40,6 +40,8 @@ ENABLE_STORE_FORWARD_CHAT="${ENABLE_STORE_FORWARD_CHAT:-true}"
 ENABLE_FEDERATION="${ENABLE_FEDERATION:-true}"
 ENABLE_TLS="${ENABLE_TLS:-true}"
 ENABLE_PLAINTEXT_TAK="${ENABLE_PLAINTEXT_TAK:-false}"
+ENABLE_SERVICE_ACCOUNT="${ENABLE_SERVICE_ACCOUNT:-true}"
+SERVICE_CN="${CERT_SERVICE_CN:-gateway-svc}"
 ADMIN_USER="${ADMIN_USER:-${CERT_ADMIN_CN:-admin}}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
 LE_ENABLE="${LE_ENABLE:-false}"
@@ -399,6 +401,14 @@ verify_coreconfig_features() {
       missing=1
     fi
   fi
+  if [[ "$ENABLE_SERVICE_ACCOUNT" == "true" ]]; then
+    if docker exec "$TAK_CONTAINER" test -f "/opt/tak/certs/files/${SERVICE_CN}.p12"; then
+      log "Verified service account certificate present ($SERVICE_CN)"
+    else
+      log "ERROR: service account certificate missing ($SERVICE_CN)"
+      missing=1
+    fi
+  fi
   if [[ "$missing" -ne 0 ]]; then
     exit 1
   fi
@@ -429,6 +439,43 @@ promote_admin() {
   # Show success lines only
   grep -E 'New User Added|Username:|ROLE_ADMIN|Already' /tmp/tak-certmod.out 2>/dev/null || true
   log "Admin certificate promoted"
+}
+
+# Non-interactive client identity for code talking to TAK Server directly
+# (Marti REST API on 8443, or mTLS on the CoT stream on 8089) — separate
+# from the human `admin` cert above so a service credential can be rotated
+# or revoked without touching anyone's personal login. The cert itself is
+# generated in init-tak-config.sh (idempotent, no DB needed); promoting it
+# to ROLE_ADMIN happens here because UserManager.jar needs the database up,
+# same reason promote_admin() retries against it above.
+ensure_service_account() {
+  if [[ "$ENABLE_SERVICE_ACCOUNT" != "true" ]]; then
+    log "ENABLE_SERVICE_ACCOUNT!=true — skipping service account"
+    return 0
+  fi
+  local pem="certs/files/${SERVICE_CN}.pem"
+  if ! docker exec "$TAK_CONTAINER" test -f "/opt/tak/$pem"; then
+    log "Service account certificate ($SERVICE_CN) not found — generating..."
+    docker exec "$TAK_CONTAINER" bash -c "cd /opt/tak/certs && ./makeCert.sh client '${SERVICE_CN}'"
+  fi
+  if ! docker exec "$TAK_CONTAINER" test -f "/opt/tak/$pem"; then
+    log "ERROR: failed to create service account certificate ($SERVICE_CN)"
+    exit 1
+  fi
+  log "Promoting service account certificate ($pem) to ROLE_ADMIN..."
+  local deadline=$((SECONDS + WAIT_TIMEOUT_SEC))
+  until docker exec "$TAK_CONTAINER" bash -c \
+    "cd /opt/tak && java -jar utils/UserManager.jar certmod -A $pem" >/tmp/tak-certmod-svc.out 2>&1; do
+    if (( SECONDS >= deadline )); then
+      log "ERROR: service account promote failed within ${WAIT_TIMEOUT_SEC}s"
+      cat /tmp/tak-certmod-svc.out 2>/dev/null || true
+      exit 1
+    fi
+    log "UserManager not ready yet — retrying in 5s..."
+    sleep 5
+  done
+  grep -E 'New User Added|Username:|ROLE_ADMIN|Already' /tmp/tak-certmod-svc.out 2>/dev/null || true
+  log "Service account certificate promoted ($SERVICE_CN)"
 }
 
 set_admin_password() {
@@ -506,6 +553,10 @@ copy_certs_home() {
   if [[ "$LE_ENABLE" == "true" && -n "${LE_FQDN:-}" ]]; then
     log "  Public/enrollment: https://${LE_FQDN}:8446"
   fi
+  if [[ "$ENABLE_SERVICE_ACCOUNT" == "true" && -f "$dest/${SERVICE_CN}.p12" ]]; then
+    log "  Service/API account (ROLE_ADMIN, mTLS): $dest/${SERVICE_CN}.p12 (password: ${CERT_PASS})"
+    log "    Marti REST API: https://<host>:8443/Marti/  |  CoT stream: <host>:8089"
+  fi
 }
 
 # --- main ---
@@ -535,6 +586,7 @@ if [[ "$CONFIG_CHANGED" -eq 1 ]]; then
 fi
 wait_for_tak_ready
 promote_admin
+ensure_service_account
 set_admin_password
 copy_certs_home
 verify_coreconfig_features
