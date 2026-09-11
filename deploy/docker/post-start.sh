@@ -456,7 +456,17 @@ ensure_service_account() {
   local pem="certs/files/${SERVICE_CN}.pem"
   if ! docker exec "$TAK_CONTAINER" test -f "/opt/tak/$pem"; then
     log "Service account certificate ($SERVICE_CN) not found — generating..."
-    docker exec "$TAK_CONTAINER" bash -c "cd /opt/tak/certs && ./makeCert.sh client '${SERVICE_CN}'"
+    # makeCert.sh reads STATE/CITY/ORGANIZATION/ORGANIZATIONAL_UNIT/CAPASS/PASS
+    # from its environment and refuses to run without them — same env this
+    # script's own `source .env` gave it, passed through explicitly because
+    # `docker exec` starts a fresh shell that doesn't inherit it otherwise
+    # (same pattern as ensure_enrollment()'s makeCert.sh call above).
+    docker exec "$TAK_CONTAINER" bash -c "
+      export STATE='${CERT_STATE:-CO}' CITY='${CERT_CITY:-Denver}' \
+        ORGANIZATION='${ORGANIZATION}' ORGANIZATIONAL_UNIT='${ORGANIZATIONAL_UNIT}' \
+        CAPASS='${CERT_PASS}' PASS='${CERT_PASS}'
+      cd /opt/tak/certs && ./makeCert.sh client '${SERVICE_CN}'
+    "
   fi
   if ! docker exec "$TAK_CONTAINER" test -f "/opt/tak/$pem"; then
     log "ERROR: failed to create service account certificate ($SERVICE_CN)"

@@ -206,8 +206,17 @@ toggles elsewhere in this doc.
 
 ## 9. Optional: add another admin account
 
+`makeCert.sh` needs `STATE`/`CITY`/`ORGANIZATION`/`ORGANIZATIONAL_UNIT`/`CAPASS`/`PASS`
+set in its environment or it refuses to run — `docker exec` starts a fresh
+shell that doesn't have them, so pass them through explicitly (values below
+match `.env`'s `CERT_*` vars; adjust if you changed those):
+
 ```bash
-docker exec takserver bash -c "cd /opt/tak/certs && ./makeCert.sh client admin2"
+docker exec takserver bash -c "
+  export STATE='AB' CITY='EDMONTON' ORGANIZATION='H2A' ORGANIZATIONAL_UNIT='TAK' \
+    CAPASS='atakatak' PASS='atakatak'
+  cd /opt/tak/certs && ./makeCert.sh client admin2
+"
 docker exec takserver bash -c "cd /opt/tak && java -jar utils/UserManager.jar certmod -A certs/files/admin2.pem"
 ```
 
