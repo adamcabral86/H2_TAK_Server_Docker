@@ -26,6 +26,8 @@ services:
       CERT_SERVICE_CN: ${CERT_SERVICE_CN:-gateway-svc}
       CERT_PASS: ${CERT_PASS:-atakatak}
       DB_PASS: ${DB_PASS:-TakDbPass123}
+      LE_FQDN: ${LE_FQDN:-}
+      FED_WEB_BASE_FQDN: ${FED_WEB_BASE_FQDN:-}
     entrypoint: ["/bin/bash", "-lc", "exec /bin/bash /init-tak-config.sh"]
     restart: "no"
 

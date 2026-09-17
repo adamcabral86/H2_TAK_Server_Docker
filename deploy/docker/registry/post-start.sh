@@ -6,8 +6,13 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 DOCKER_ROOT="$(cd "$ROOT/.." && pwd)"
 cd "$DOCKER_ROOT"
+ENV_FILE="$ROOT/.env"
+if [[ ! -f "$ENV_FILE" ]]; then
+  echo "ERROR: $ENV_FILE not found. Copy env.example to .env in the registry directory first." >&2
+  exit 1
+fi
 set -a
-source .env
+source "$ENV_FILE"
 set +a
 
 TAK_CONTAINER="${TAK_CONTAINER:-takserver}"
@@ -24,6 +29,18 @@ until docker exec "$TAK_CONTAINER" bash -c "grep -q 'Server started' /opt/tak/lo
   fi
   sleep 5
 done
+
+if [[ "${LE_ENABLE:-false}" == "true" ]]; then
+  bash "$ROOT/apply-letsencrypt.sh"
+  deadline=$((SECONDS + WAIT_TIMEOUT_SEC))
+  until docker exec "$TAK_CONTAINER" bash -c "grep -q 'Server started' /opt/tak/logs/takserver-messaging.log 2>/dev/null || exec 3<>/dev/tcp/127.0.0.1/8443"; do
+    if (( SECONDS >= deadline )); then
+      echo "ERROR: TAK did not become ready after Let's Encrypt restart" >&2
+      exit 1
+    fi
+    sleep 5
+  done
+fi
 
 promote_cert() {
   local cn="$1"
@@ -47,5 +64,14 @@ if [[ -n "${ADMIN_PASSWORD:-}" ]]; then
     "$TAK_CONTAINER" bash -c \
     'cd /opt/tak && java -jar utils/UserManager.jar usermod -A -p "$TAK_ADMIN_PASSWORD" "$TAK_ADMIN_USER"'
 fi
+
+if [[ -n "${CERTS_HOME_DIR:-}" ]]; then
+  CERTS_DEST="$CERTS_HOME_DIR"
+else
+  CERTS_DEST="$HOME/takserver-certs"
+fi
+mkdir -p "$CERTS_DEST"
+docker cp "$TAK_CONTAINER:/opt/tak/certs/files/." "$CERTS_DEST/"
+echo "[registry-post-start] Internal certificates exported to $CERTS_DEST"
 
 echo "[registry-post-start] Done. Admin/enrollment endpoint: https://<host>:${HOST_PORT_CERT_HTTPS:-8446}"

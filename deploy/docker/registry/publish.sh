@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
 # Build images from a locally staged, licensed TAK release and push them to
-# private GitHub Container Registry repositories. GHCR_TOKEN needs packages:write.
+# GitHub Container Registry repositories. GHCR_TOKEN needs packages:write.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 DOCKER_ROOT="$(cd "$ROOT/.." && pwd)"
 cd "$DOCKER_ROOT"
 
-if [[ ! -f .env ]]; then
-  echo "ERROR: .env not found. Copy registry/env.example to .env first." >&2
+ENV_FILE="$ROOT/.env"
+if [[ ! -f "$ENV_FILE" ]]; then
+  echo "ERROR: $ENV_FILE not found. Copy env.example to .env in the registry directory first." >&2
   exit 1
 fi
 set -a
-source .env
+source "$ENV_FILE"
 set +a
 
 : "${TAK_RELEASE:?TAK_RELEASE must identify the locally staged vendor release}"
@@ -26,6 +27,6 @@ if [[ ! -d "staging/$TAK_RELEASE/tak" ]]; then
 fi
 
 echo "$GHCR_TOKEN" | docker login ghcr.io -u adamcabral86 --password-stdin
-docker compose --env-file .env -f "$ROOT/docker-compose.build.yml" build
+docker compose --env-file "$ENV_FILE" -f "$ROOT/docker-compose.build.yml" build
 docker push "$TAK_IMAGE"
 docker push "$TAK_DB_IMAGE"
