@@ -3,7 +3,8 @@
 # Intended as certbot's --deploy-hook; it does not request or renew a certificate.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_ROOT="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$SCRIPT_ROOT/.." && pwd)"
 ENV_FILE="$ROOT/.env"
 set -a
 source "$ENV_FILE"
@@ -41,4 +42,4 @@ docker exec -e TAK_CERT_PASS="$CERT_PASS" "$TAK_CONTAINER" bash -c '
   fi
 '
 docker compose --env-file "$ENV_FILE" -f "$ROOT/docker-compose.yml" restart tak
-echo "[registry-le] Installed current Let's Encrypt certificate for $LE_FQDN"
+echo "[tak-le] Installed current Let's Encrypt certificate for $LE_FQDN"

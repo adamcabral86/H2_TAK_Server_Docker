@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Registry equivalent of the account-provisioning portion of post-start.sh.
+# Post-start account provisioning for the pulled-image deployment.
 # Configuration/certificates remain inside the named tak_config volume.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")" && pwd)"
-DOCKER_ROOT="$(cd "$ROOT/.." && pwd)"
-cd "$DOCKER_ROOT"
+SCRIPT_ROOT="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$SCRIPT_ROOT/.." && pwd)"
+cd "$ROOT"
 ENV_FILE="$ROOT/.env"
 if [[ ! -f "$ENV_FILE" ]]; then
-  echo "ERROR: $ENV_FILE not found. Copy env.example to .env in the registry directory first." >&2
+  echo "ERROR: $ENV_FILE not found. Copy env.example to .env in the docker directory first." >&2
   exit 1
 fi
 set -a
@@ -31,7 +31,7 @@ until docker exec "$TAK_CONTAINER" bash -c "grep -q 'Server started' /opt/tak/lo
 done
 
 if [[ "${LE_ENABLE:-false}" == "true" ]]; then
-  bash "$ROOT/apply-letsencrypt.sh"
+  bash "$SCRIPT_ROOT/apply-letsencrypt.sh"
   deadline=$((SECONDS + WAIT_TIMEOUT_SEC))
   until docker exec "$TAK_CONTAINER" bash -c "grep -q 'Server started' /opt/tak/logs/takserver-messaging.log 2>/dev/null || exec 3<>/dev/tcp/127.0.0.1/8443"; do
     if (( SECONDS >= deadline )); then
@@ -48,16 +48,16 @@ promote_cert() {
     "cd /opt/tak && java -jar utils/UserManager.jar certmod -A certs/files/${cn}.pem"
 }
 
-echo "[registry-post-start] Promoting internal administrator certificate..."
+echo "[tak-post-start] Promoting internal administrator certificate..."
 promote_cert "$ADMIN_CN"
 
 if [[ "${ENABLE_SERVICE_ACCOUNT:-true}" == "true" ]]; then
-  echo "[registry-post-start] Promoting internal service certificate..."
+  echo "[tak-post-start] Promoting internal service certificate..."
   promote_cert "$SERVICE_CN"
 fi
 
 if [[ -n "${ADMIN_PASSWORD:-}" ]]; then
-  echo "[registry-post-start] Setting password for ${ADMIN_USER}..."
+  echo "[tak-post-start] Setting password for ${ADMIN_USER}..."
   docker exec \
     -e "TAK_ADMIN_USER=${ADMIN_USER}" \
     -e "TAK_ADMIN_PASSWORD=${ADMIN_PASSWORD}" \
@@ -72,6 +72,6 @@ else
 fi
 mkdir -p "$CERTS_DEST"
 docker cp "$TAK_CONTAINER:/opt/tak/certs/files/." "$CERTS_DEST/"
-echo "[registry-post-start] Internal certificates exported to $CERTS_DEST"
+echo "[tak-post-start] Internal certificates exported to $CERTS_DEST"
 
-echo "[registry-post-start] Done. Admin/enrollment endpoint: https://<host>:${HOST_PORT_CERT_HTTPS:-8446}"
+echo "[tak-post-start] Done. Admin/enrollment endpoint: https://<host>:${HOST_PORT_CERT_HTTPS:-8446}"

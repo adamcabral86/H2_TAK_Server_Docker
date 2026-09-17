@@ -2,7 +2,8 @@
 # Request a public certificate for :8446, then import it into the named TAK volume.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_ROOT="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$SCRIPT_ROOT/.." && pwd)"
 ENV_FILE="$ROOT/.env"
 set -a
 source "$ENV_FILE"
@@ -20,19 +21,19 @@ if ! command -v certbot >/dev/null; then
   sudo apt-get update -qq && sudo apt-get install -y certbot
 fi
 
-echo "[registry-le] Requesting certificate for $LE_FQDN (TCP 80 must be publicly reachable)..."
+echo "[tak-le] Requesting certificate for $LE_FQDN (TCP 80 must be publicly reachable)..."
 sudo certbot certonly --standalone -d "$LE_FQDN" -m "$LE_EMAIL" \
   --agree-tos --no-eff-email --non-interactive
-bash "$ROOT/renew-letsencrypt.sh"
+bash "$SCRIPT_ROOT/renew-letsencrypt.sh"
 
 # Certbot's packaged timer normally renews twice daily. Install a separate
 # deploy-hook schedule so a renewed certificate is also imported into TAK's
 # named volume. This never requests a certificate unless renewal is due.
-CRON_FILE="/etc/cron.d/certbot-tak-registry"
+CRON_FILE="/etc/cron.d/certbot-tak-docker"
 printf '%s\n' \
   'SHELL=/bin/sh' \
   'PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin' \
-  "0 */12 * * * root certbot -q renew --deploy-hook $ROOT/renew-letsencrypt.sh" \
+  "0 */12 * * * root certbot -q renew --deploy-hook $SCRIPT_ROOT/renew-letsencrypt.sh" \
   | sudo tee "$CRON_FILE" >/dev/null
 sudo chmod 644 "$CRON_FILE"
-echo "[registry-le] Renewal deploy hook installed at $CRON_FILE"
+echo "[tak-le] Renewal deploy hook installed at $CRON_FILE"

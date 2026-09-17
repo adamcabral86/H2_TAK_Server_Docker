@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Registry-local copy of the TAK initializer. Keep this version in sync with
-# the legacy deploy/docker/init-tak-config.sh when changing shared behavior.
+# Creates the initial TAK configuration and deployment certificate authority.
 set -euo pipefail
 
 TAK_ROOT="${TAK_ROOT:-/opt/tak}"
@@ -136,4 +135,4 @@ FED_FQDN="${FED_WEB_BASE_FQDN:-${LE_FQDN:-}}"
 if [[ -n "$FED_FQDN" ]] && grep -q 'webBaseUrl=' "$CONFIG"; then
   sed -i -E "s|webBaseUrl=\"[^\"]*\"|webBaseUrl=\"https://${FED_FQDN}:8443/Marti\"|" "$CONFIG"
 fi
-echo '[registry-init] Done.'
+echo '[tak-init] Done.'

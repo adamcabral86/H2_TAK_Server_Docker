@@ -1,21 +1,22 @@
 #!/usr/bin/env bash
-# Unpack an official takserver-docker zip into staging/, without disturbing
+# Unpack an official TAK Server ZIP into staging/, without disturbing
 # any other release already staged there. Usage:
-#   ./prepare-tak-docker.sh [path-to-zip]
+#   ./prepare-release.sh [path-to-zip]
 # If omitted, uses the zip in vendor/ — but only if exactly one non-hardened
 # one exists there. With more than one, you must specify which.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
+DEPLOY_ROOT="$(cd "$ROOT/.." && pwd)"
 VENDOR="$ROOT/vendor"
 STAGING="$ROOT/staging"
 
 cd "$ROOT"
-if [[ -f .env ]]; then
+if [[ -f "$DEPLOY_ROOT/.env" ]]; then
   # shellcheck disable=SC1091
   set -a
   # shellcheck source=/dev/null
-  source .env
+  source "$DEPLOY_ROOT/.env"
   set +a
 fi
 
@@ -115,11 +116,9 @@ echo "Set this in your .env:"
 echo "  TAK_RELEASE=$RELEASE_DIR"
 echo
 echo "Next:"
-echo "  1. cp env.example .env   # set TAK_RELEASE (above), LE_*, CERT_* as needed"
-echo "  2. export COMPOSE_BAKE=false   # classic builder, no buildx plugin needed"
-echo "  3. docker compose --env-file .env up -d --build"
-echo "  4. ./post-start.sh"
-echo "  5. Log in at https://localhost:8443/Marti/"
+echo "  1. Set TAK_RELEASE=$RELEASE_DIR in docker/.env"
+echo "  2. export GHCR_TOKEN='github-token-with-write-packages'"
+echo "  3. bash publish.sh"
 echo
 echo "Staged releases under staging/:"
 find "$STAGING" -maxdepth 1 -mindepth 1 -type d -printf '  %f\n' 2>/dev/null | sort

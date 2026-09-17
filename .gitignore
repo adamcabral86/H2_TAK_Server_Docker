@@ -5,34 +5,15 @@ Thumbs.db
 *.iml
 .settings/
 
-# Local deployment secrets/config — copy deploy/docker/env.example to .env instead
-deploy/docker/.env
-deploy/docker/**/.env
+# Local deployment configuration and secrets
+docker/.env
 
-# Vendor download and generated staging tree
-deploy/docker/vendor/*
-!deploy/docker/vendor/.gitignore
-deploy/docker/staging/*
-!deploy/docker/staging/.gitignore
+# Official vendor installer and generated staging tree (trusted builder only)
+docker/publish/vendor/*
+!docker/publish/vendor/.gitignore
+docker/publish/staging/*
+!docker/publish/staging/.gitignore
 
-# Upgrade backups / state
-deploy/docker/backups/
-deploy/docker/.last-upgrade-state
-deploy/docker/renew-tak-le.sh
-deploy/docker/certbot-tak-le.cron
-
-# Packaged deployable bundles built from this repo
-/dist/
-
-# Python cruft
-scripts/__pycache__/
+# Python bytecode
+__pycache__/
 *.pyc
-
-# Cert material dropped into scripts/ to run test_tak_connection.py
-# (gateway-svc.p12 is a ROLE_ADMIN credential — never belongs in git history).
-# ca.pem is only a public cert, not a secret, but excluded here too so
-# "drop both certs in scripts/" can't accidentally stage either one.
-scripts/*.p12
-scripts/*.pem
-scripts/*.jks
-scripts/*.key
