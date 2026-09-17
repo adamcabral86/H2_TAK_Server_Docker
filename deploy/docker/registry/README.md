@@ -8,7 +8,7 @@ then needs only this deployment directory, Docker Compose, and a private `.env`.
 ## Publish images (trusted builder)
 
 1. Put the official TAK ZIP in `vendor/` and run `bash prepare-tak-docker.sh`.
-2. Copy `env.registry.example` to `.env`; keep `TAK_RELEASE` aligned with the
+2. Copy `registry/env.example` to `.env`; keep `TAK_RELEASE` aligned with the
    staged directory and update image tags as appropriate.
 3. Create a GitHub classic personal access token with `write:packages`. Do not
    put this token in `.env` or Git.
@@ -16,7 +16,7 @@ then needs only this deployment directory, Docker Compose, and a private `.env`.
 
    ```bash
    export GHCR_TOKEN='github-token-with-write-packages'
-   bash publish-ghcr.sh
+   bash registry/publish.sh
    unset GHCR_TOKEN
    ```
 
@@ -26,12 +26,12 @@ only publish TAK content where its license permits it.
 
 ## Deploy images (target host)
 
-1. Copy `env.registry.example` to `.env` and replace every `CHANGE_ME` value.
+1. Copy `registry/env.example` to `.env` and replace every `CHANGE_ME` value.
 2. Start and provision the stack. No GHCR token or `docker login` is required
    to pull these public images:
 
    ```bash
-   bash deploy-registry.sh
+   bash registry/deploy.sh
    ```
 
 `tak_config` holds `CoreConfig.xml` and the deployment CA/certificates;

@@ -4,7 +4,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
-cd "$ROOT"
+DOCKER_ROOT="$(cd "$ROOT/.." && pwd)"
+cd "$DOCKER_ROOT"
 set -a
 source .env
 set +a

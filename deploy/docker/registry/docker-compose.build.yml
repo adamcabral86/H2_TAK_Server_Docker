@@ -3,12 +3,12 @@
 services:
   db:
     build:
-      context: ./staging/${TAK_RELEASE}
-      dockerfile: ../../Dockerfile.takserver-db.registry
+      context: ../staging/${TAK_RELEASE}
+      dockerfile: ../../registry/Dockerfile.takserver-db
     image: ${TAK_DB_IMAGE}
 
   tak:
     build:
-      context: ./staging/${TAK_RELEASE}
-      dockerfile: ../../Dockerfile.takserver.registry
+      context: ../staging/${TAK_RELEASE}
+      dockerfile: ../../registry/Dockerfile.takserver
     image: ${TAK_IMAGE}

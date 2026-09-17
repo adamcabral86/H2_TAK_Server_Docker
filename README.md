@@ -65,7 +65,7 @@ For deployments that should not need the official TAK installer ZIP on every
 host, this repository also supports prebuilt GHCR images under
 `ghcr.io/adamcabral86`. The trusted builder still needs the official ZIP to
 make those images; a target host only pulls images and supplies a private
-`.env`. See [`deploy/docker/GHCR.md`](deploy/docker/GHCR.md).
+`.env`. See [`deploy/docker/registry/README.md`](deploy/docker/registry/README.md).
 
 ## What's next
 

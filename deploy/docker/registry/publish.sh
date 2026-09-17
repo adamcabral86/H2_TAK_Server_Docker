@@ -4,10 +4,11 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
-cd "$ROOT"
+DOCKER_ROOT="$(cd "$ROOT/.." && pwd)"
+cd "$DOCKER_ROOT"
 
 if [[ ! -f .env ]]; then
-  echo "ERROR: .env not found. Copy env.registry.example or env.example to .env first." >&2
+  echo "ERROR: .env not found. Copy registry/env.example to .env first." >&2
   exit 1
 fi
 set -a
@@ -25,6 +26,6 @@ if [[ ! -d "staging/$TAK_RELEASE/tak" ]]; then
 fi
 
 echo "$GHCR_TOKEN" | docker login ghcr.io -u adamcabral86 --password-stdin
-docker compose --env-file .env -f docker-compose.registry-build.yml build
+docker compose --env-file .env -f "$ROOT/docker-compose.build.yml" build
 docker push "$TAK_IMAGE"
 docker push "$TAK_DB_IMAGE"
