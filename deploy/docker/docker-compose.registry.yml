@@ -1,0 +1,75 @@
+# Registry deployment: pulls prebuilt images, then uses named volumes for
+# per-deployment TAK configuration/certificates and PostgreSQL data.
+services:
+  init:
+    image: ${TAK_IMAGE}
+    container_name: tak-init
+    working_dir: /opt/tak
+    volumes:
+      - tak_config:/opt/tak
+      - ./init-tak-config.sh:/init-tak-config.sh:ro
+    environment:
+      CERT_STATE: ${CERT_STATE:-CO}
+      CERT_CITY: ${CERT_CITY:-Denver}
+      CERT_ORGANIZATION: ${CERT_ORGANIZATION:-TAK}
+      CERT_ORGANIZATIONAL_UNIT: ${CERT_ORGANIZATIONAL_UNIT:-Lab}
+      CERT_COUNTRY: ${CERT_COUNTRY:-US}
+      CERT_SERVER_CN: ${CERT_SERVER_CN:-takserver}
+      CERT_ADMIN_CN: ${CERT_ADMIN_CN:-admin}
+      CERT_CA_CN: ${CERT_CA_CN:-TAK-CA-01}
+      ENABLE_CERT_ENROLLMENT: ${ENABLE_CERT_ENROLLMENT:-true}
+      ENABLE_STORE_FORWARD_CHAT: ${ENABLE_STORE_FORWARD_CHAT:-true}
+      ENABLE_FEDERATION: ${ENABLE_FEDERATION:-true}
+      ENABLE_TLS: ${ENABLE_TLS:-true}
+      ENABLE_PLAINTEXT_TAK: ${ENABLE_PLAINTEXT_TAK:-false}
+      ENABLE_SERVICE_ACCOUNT: ${ENABLE_SERVICE_ACCOUNT:-true}
+      CERT_SERVICE_CN: ${CERT_SERVICE_CN:-gateway-svc}
+      CERT_PASS: ${CERT_PASS:-atakatak}
+      DB_PASS: ${DB_PASS:-TakDbPass123}
+    entrypoint: ["/bin/bash", "-lc", "exec /bin/bash /init-tak-config.sh"]
+    restart: "no"
+
+  db:
+    image: ${TAK_DB_IMAGE}
+    container_name: tak-database
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    volumes:
+      - tak_config:/opt/tak
+      - tak_db_data:/var/lib/postgresql/data
+    networks:
+      tak:
+        aliases: [tak-database]
+    restart: unless-stopped
+
+  tak:
+    image: ${TAK_IMAGE}
+    container_name: takserver
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      db:
+        condition: service_started
+    volumes:
+      - tak_config:/opt/tak
+    ports:
+      - "${HOST_PORT_TAK_SSL:-8089}:8089"
+      - "${HOST_PORT_TAK_PLAINTEXT:-8087}:8087"
+      - "${HOST_PORT_HTTPS:-8443}:8443"
+      - "${HOST_PORT_FED_HTTPS:-8444}:8444"
+      - "${HOST_PORT_FED_V1:-9000}:9000"
+      - "${HOST_PORT_FED_V2:-9001}:9001"
+      - "${HOST_PORT_CERT_HTTPS:-8446}:8446"
+    networks: [tak]
+    restart: unless-stopped
+
+volumes:
+  tak_config:
+    name: ${TAK_CONFIG_VOLUME:-tak_config}
+  tak_db_data:
+    name: ${DB_VOLUME:-tak_db_data}
+
+networks:
+  tak:
+    name: takserver-net

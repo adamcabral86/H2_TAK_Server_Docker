@@ -1,0 +1,11 @@
+# Runtime image for registry-based deployments. The build context is a staged
+# official TAK release, so `tak/` contains the licensed TAK Server runtime.
+FROM eclipse-temurin:17-jammy
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends emacs-nox net-tools netcat-openbsd vim \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY tak/ /opt/tak/
+
+ENTRYPOINT ["/bin/bash", "-c", "/opt/tak/configureInDocker.sh init &>> /opt/tak/logs/takserver.log"]
