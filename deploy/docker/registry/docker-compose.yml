@@ -7,7 +7,7 @@ services:
     working_dir: /opt/tak
     volumes:
       - tak_config:/opt/tak
-      - ../init-tak-config.sh:/init-tak-config.sh:ro
+      - ./init-tak-config.sh:/init-tak-config.sh:ro
     environment:
       CERT_STATE: ${CERT_STATE:-CO}
       CERT_CITY: ${CERT_CITY:-Denver}

@@ -1,9 +1,10 @@
 # GitHub Container Registry deployment
 
-This is the pulled-image deployment path. It keeps the official TAK installer
-out of Git and out of the target host: a trusted builder stages the official
-release, builds two public images, and pushes them to GHCR. Each target host
-then needs only this deployment directory, Docker Compose, and a private `.env`.
+This is a self-contained pulled-image deployment path. It keeps the official
+TAK installer out of Git and out of the target host: a trusted builder stages
+the official release, builds two public images, and pushes them to GHCR. Each
+target host then needs only this `registry/` directory, Docker Compose, and a
+private `.env`.
 
 ## Publish images (trusted builder)
 
