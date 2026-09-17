@@ -88,6 +88,13 @@ unzip -q "$ZIP" -d "$STAGING"
 # the directory clearly exists.
 chmod -R u+rwX,go+rX "$STAGING/$RELEASE_DIR"
 
+# Older vendor database images pin a retired Debian-based patch image. Keep the
+# vendor's Postgres major version while using a supported Java 17 base.
+DB_DOCKERFILE="$STAGING/$RELEASE_DIR/docker/Dockerfile.takserver-db"
+if [[ -f "$DB_DOCKERFILE" ]]; then
+  sed -E -i 's#^FROM postgres:([0-9]+)(\.[0-9]+)?$#FROM postgres:\1-bookworm#' "$DB_DOCKERFILE"
+fi
+
 TAK_ROOT="$STAGING/$RELEASE_DIR/tak"
 if [[ ! -d "$TAK_ROOT" ]]; then
   # Vendor layouts vary — fall back to a search within this release's own tree.

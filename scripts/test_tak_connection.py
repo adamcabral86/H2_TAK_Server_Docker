@@ -109,7 +109,7 @@ def build_test_cot(lat: float, lon: float, uid: str, callsign: str, stale_minute
     fmt = "%Y-%m-%dT%H:%M:%SZ"
     return (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-        f'<event version="2.0" uid="{uid}" type="a-f-G-U-C" '
+        f'<event version="2.0" uid="{uid}" type="a-f-G" '
         f'time="{now.strftime(fmt)}" start="{now.strftime(fmt)}" stale="{stale.strftime(fmt)}" '
         'how="m-g">'
         f'<point lat="{lat}" lon="{lon}" hae="0.0" ce="9999999.0" le="9999999.0"/>'
