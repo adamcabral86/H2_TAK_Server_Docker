@@ -1,0 +1,14 @@
+# Build-only Compose file. Requires a staged official TAK release locally;
+# it creates images that embed /opt/tak and can subsequently be pushed to GHCR.
+services:
+  db:
+    build:
+      context: ./staging/${TAK_RELEASE}
+      dockerfile: ../../Dockerfile.takserver-db
+    image: ${TAK_DB_IMAGE}
+
+  tak:
+    build:
+      context: ./staging/${TAK_RELEASE}
+      dockerfile: ../../Dockerfile.takserver
+    image: ${TAK_IMAGE}
