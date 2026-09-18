@@ -49,6 +49,20 @@ fi
 
 [[ -f "$TAK_ROOT/CoreConfig.xml" ]] || cp "$TAK_ROOT/CoreConfig.example.xml" "$TAK_ROOT/CoreConfig.xml"
 CONFIG="$TAK_ROOT/CoreConfig.xml"
+
+# TAK 5.7 starts several JVMs at once. Each lazily copies this example file
+# when it is missing, using a non-atomic exists-then-copy sequence. Seed it
+# during this single init service so concurrent JVM startup cannot race.
+IGNITE_CONFIG="$TAK_ROOT/TAKIgniteConfig.xml"
+IGNITE_CONFIG_EXAMPLE="$TAK_ROOT/TAKIgniteConfig.example.xml"
+if [[ ! -e "$IGNITE_CONFIG" ]]; then
+  [[ -f "$IGNITE_CONFIG_EXAMPLE" ]] || {
+    echo "ERROR: $IGNITE_CONFIG_EXAMPLE not found." >&2
+    exit 1
+  }
+  cp "$IGNITE_CONFIG_EXAMPLE" "$IGNITE_CONFIG"
+fi
+
 grep -q 'password="' "$CONFIG" && sed -i -E "s/(<connection[^>]*password=\")[^\"]*(\")/\1${DB_PASS}\2/" "$CONFIG"
 sed -i -E "s/keystorePass=\"[^\"]*\"/keystorePass=\"${CERT_PASS}\"/" "$CONFIG" || true
 sed -i -E "s/truststorePass=\"[^\"]*\"/truststorePass=\"${CERT_PASS}\"/" "$CONFIG" || true

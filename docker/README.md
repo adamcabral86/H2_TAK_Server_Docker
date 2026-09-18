@@ -25,6 +25,7 @@ existing Docker host separately.
 ```bash
 cd docker
 cp env.example .env
+nano .env
 # Set secure CERT_PASS, DB_PASS, and ADMIN_PASSWORD values.
 bash deploy.sh
 ```
@@ -46,9 +47,11 @@ trust store, then enroll using the host LAN IP or DNS name on port 8446.
 `localhost` works only on the same computer.
 
 After deployment, the startup instructions use `LE_FQDN` when set. Otherwise
-they try the AWS EC2 IMDSv2 public IPv4 address and then
-`checkip.amazonaws.com`. Set `PUBLIC_IP` to override that display value when a
-proxy, load balancer, or NAT makes automatic discovery unsuitable.
+they try the AWS EC2 IMDSv2 public IPv4 address, the host's primary
+route-interface IP, and finally `checkip.amazonaws.com`. The final external
+lookup reports the outbound NAT address and may not be client-reachable. Set
+`PUBLIC_IP` to override the display value when a proxy, load balancer, or NAT
+makes automatic discovery unsuitable.
 
 For an internet-facing enrollment endpoint, set `LE_ENABLE=true`, `LE_FQDN`,
 and `LE_EMAIL` in `.env`. The FQDN must resolve publicly to this host and TCP
