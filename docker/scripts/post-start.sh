@@ -175,10 +175,13 @@ echo "  Same-host testing:      https://localhost:${HOST_PORT_CERT_HTTPS:-8446}"
 
 echo "  Web administration:    https://${TAK_HOST_DISPLAY}:${HOST_PORT_HTTPS:-8443}"
 echo "  Import admin.p12 in your browser; its password is CERT_PASS from .env."
-
-echo "  Client trust material:"  
-echo "  ca.pem and truststore-root.p12"
+echo
+echo "  Client trust material:"
+echo "  truststore-root.p12"
 echo "  truststore-root.p12 uses CERT_PASS from .env."
 echo
 echo "  Standard TAK client:    ${CLIENT_USER}.p12 (password: CERT_PASS from .env)"
 echo "  Enrollment username:   '${CLIENT_USER}' (password: CLIENT_PASSWORD from .env)."
+echo 
+echo "  Federation trust certificate:"
+echo "  ca.pem"
