@@ -22,25 +22,29 @@ ADMIN_USER="${ADMIN_USER:-$ADMIN_CN}"
 CLIENT_USER="${CLIENT_USER:-takuser1}"
 WAIT_TIMEOUT_SEC="${WAIT_TIMEOUT_SEC:-300}"
 
-deadline=$((SECONDS + WAIT_TIMEOUT_SEC))
-until docker exec "$TAK_CONTAINER" bash -c "grep -q 'Server started' /opt/tak/logs/takserver-messaging.log 2>/dev/null || exec 3<>/dev/tcp/127.0.0.1/8443"; do
-  if (( SECONDS >= deadline )); then
-    echo "ERROR: TAK did not become ready within ${WAIT_TIMEOUT_SEC}s" >&2
-    exit 1
-  fi
-  sleep 5
-done
+wait_for_tak_ready() {
+  local phase="$1"
+  local messaging_from=$(( $2 + 1 ))
+  local api_from=$(( $3 + 1 ))
+  local deadline=$((SECONDS + WAIT_TIMEOUT_SEC))
 
-if [[ "${LE_ENABLE:-false}" == "true" ]]; then
-  bash "$SCRIPT_ROOT/apply-letsencrypt.sh"
-  deadline=$((SECONDS + WAIT_TIMEOUT_SEC))
-  until docker exec "$TAK_CONTAINER" bash -c "grep -q 'Server started' /opt/tak/logs/takserver-messaging.log 2>/dev/null || exec 3<>/dev/tcp/127.0.0.1/8443"; do
+  until docker exec "$TAK_CONTAINER" bash -c \
+    "tail -n +${messaging_from} /opt/tak/logs/takserver-messaging.log 2>/dev/null | grep -q 'Started TAK Server messaging Microservice.' && tail -n +${api_from} /opt/tak/logs/takserver-api.log 2>/dev/null | grep -q 'Started TAK Server api Microservice.'"; do
     if (( SECONDS >= deadline )); then
-      echo "ERROR: TAK did not become ready after Let's Encrypt restart" >&2
+      echo "ERROR: TAK did not become ready ${phase} within ${WAIT_TIMEOUT_SEC}s" >&2
       exit 1
     fi
     sleep 5
   done
+}
+
+wait_for_tak_ready "after startup" 0 0
+
+if [[ "${LE_ENABLE:-false}" == "true" ]]; then
+  messaging_log_lines="$(docker exec "$TAK_CONTAINER" bash -c 'wc -l < /opt/tak/logs/takserver-messaging.log 2>/dev/null || printf "0\\n"')"
+  api_log_lines="$(docker exec "$TAK_CONTAINER" bash -c 'wc -l < /opt/tak/logs/takserver-api.log 2>/dev/null || printf "0\\n"')"
+  bash "$SCRIPT_ROOT/apply-letsencrypt.sh"
+  wait_for_tak_ready "after Let's Encrypt restart" "$messaging_log_lines" "$api_log_lines"
 fi
 
 promote_cert() {
