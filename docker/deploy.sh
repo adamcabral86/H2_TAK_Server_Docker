@@ -12,7 +12,11 @@ if [[ ! -f "$ENV_FILE" ]]; then
   exit 1
 fi
 
-docker compose --env-file "$ENV_FILE" -f "$ROOT/docker-compose.yml" pull
+if [[ "${SKIP_IMAGE_PULL:-false}" == "true" ]]; then
+  echo "[tak-deploy] Using locally loaded images; skipping registry pull."
+else
+  docker compose --env-file "$ENV_FILE" -f "$ROOT/docker-compose.yml" pull
+fi
 docker compose --env-file "$ENV_FILE" -f "$ROOT/docker-compose.yml" up -d
 echo "[tak-deploy] Containers started. Waiting for TAK messaging and API services to become ready; first startup can take a few minutes..."
 bash "$ROOT/scripts/post-start.sh"

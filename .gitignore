@@ -8,6 +8,7 @@ Thumbs.db
 # Local deployment configuration and secrets
 docker/.env
 docker/tak-certs/
+takserver-images-*.tar
 
 # Official vendor installer and generated staging tree (trusted builder only)
 docker/publish/vendor/*
