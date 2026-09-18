@@ -77,10 +77,13 @@ To create an additional normal client certificate after deployment, run from
 the `docker/` directory:
 
 ```bash
+set -a; source .env; set +a
 CLIENT_USER=takuser2
 read -rsp "Client password: " CLIENT_PASSWORD; echo
 
-docker exec -e TAK_CLIENT_USER="$CLIENT_USER" takserver bash -lc \
+docker exec -e TAK_CLIENT_USER="$CLIENT_USER" -e STATE="$CERT_STATE" -e CITY="$CERT_CITY" \
+  -e ORGANIZATION="$CERT_ORGANIZATION" -e ORGANIZATIONAL_UNIT="$CERT_ORGANIZATIONAL_UNIT" \
+  -e COUNTRY="$CERT_COUNTRY" -e CAPASS="$CERT_PASS" -e PASS="$CERT_PASS" takserver bash -lc \
   'cd /opt/tak/certs && ./makeCert.sh client "$TAK_CLIENT_USER"'
 docker exec -e TAK_CLIENT_USER="$CLIENT_USER" takserver bash -lc \
   'cd /opt/tak && java -jar utils/UserManager.jar certmod "certs/files/${TAK_CLIENT_USER}.pem"'

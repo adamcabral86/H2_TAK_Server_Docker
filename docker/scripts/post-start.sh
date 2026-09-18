@@ -57,7 +57,16 @@ promote_standard_client_cert() {
 
 ensure_standard_client_cert() {
   local cn="$1"
-  docker exec -e TAK_CLIENT_CN="$cn" "$TAK_CONTAINER" bash -c \
+  docker exec \
+    -e "TAK_CLIENT_CN=${cn}" \
+    -e "STATE=${CERT_STATE:-CO}" \
+    -e "CITY=${CERT_CITY:-Denver}" \
+    -e "ORGANIZATION=${CERT_ORGANIZATION:-TAK}" \
+    -e "ORGANIZATIONAL_UNIT=${CERT_ORGANIZATIONAL_UNIT:-Lab}" \
+    -e "COUNTRY=${CERT_COUNTRY:-US}" \
+    -e "CAPASS=${CERT_PASS:-atakatak}" \
+    -e "PASS=${CERT_PASS:-atakatak}" \
+    "$TAK_CONTAINER" bash -c \
     'test -f "/opt/tak/certs/files/${TAK_CLIENT_CN}.p12" || (cd /opt/tak/certs && ./makeCert.sh client "$TAK_CLIENT_CN")'
 }
 
