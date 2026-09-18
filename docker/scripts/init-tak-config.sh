@@ -20,6 +20,7 @@ ENABLE_TLS="${ENABLE_TLS:-true}"
 ENABLE_PLAINTEXT_TAK="${ENABLE_PLAINTEXT_TAK:-false}"
 ENABLE_SERVICE_ACCOUNT="${ENABLE_SERVICE_ACCOUNT:-true}"
 SERVICE_CN="${CERT_SERVICE_CN:-gateway-svc}"
+CLIENT_USER="${CLIENT_USER:-takuser1}"
 
 cd "$CERTS"
 chmod +x *.sh 2>/dev/null || true
@@ -37,6 +38,10 @@ fi
 
 if [[ "$ENABLE_SERVICE_ACCOUNT" == "true" && ! -f "$FILES/${SERVICE_CN}.p12" ]]; then
   ./makeCert.sh client "$SERVICE_CN"
+fi
+
+if [[ ! -f "$FILES/${CLIENT_USER}.p12" ]]; then
+  ./makeCert.sh client "$CLIENT_USER"
 fi
 
 if [[ -f "$FILES/${CA_CN}.pem" && -f "$FILES/truststore-root.jks" ]] \

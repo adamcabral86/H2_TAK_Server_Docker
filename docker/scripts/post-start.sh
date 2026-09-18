@@ -19,6 +19,7 @@ TAK_CONTAINER="${TAK_CONTAINER:-takserver}"
 ADMIN_CN="${CERT_ADMIN_CN:-admin}"
 SERVICE_CN="${CERT_SERVICE_CN:-gateway-svc}"
 ADMIN_USER="${ADMIN_USER:-$ADMIN_CN}"
+CLIENT_USER="${CLIENT_USER:-takuser1}"
 WAIT_TIMEOUT_SEC="${WAIT_TIMEOUT_SEC:-300}"
 
 deadline=$((SECONDS + WAIT_TIMEOUT_SEC))
@@ -48,6 +49,18 @@ promote_cert() {
     "cd /opt/tak && java -jar utils/UserManager.jar certmod -A certs/files/${cn}.pem"
 }
 
+promote_standard_client_cert() {
+  local cn="$1"
+  docker exec "$TAK_CONTAINER" bash -c \
+    "cd /opt/tak && java -jar utils/UserManager.jar certmod certs/files/${cn}.pem"
+}
+
+ensure_standard_client_cert() {
+  local cn="$1"
+  docker exec -e TAK_CLIENT_CN="$cn" "$TAK_CONTAINER" bash -c \
+    'test -f "/opt/tak/certs/files/${TAK_CLIENT_CN}.p12" || (cd /opt/tak/certs && ./makeCert.sh client "$TAK_CLIENT_CN")'
+}
+
 echo "[tak-post-start] Promoting internal administrator certificate..."
 promote_cert "$ADMIN_CN"
 
@@ -63,6 +76,19 @@ if [[ -n "${ADMIN_PASSWORD:-}" ]]; then
     -e "TAK_ADMIN_PASSWORD=${ADMIN_PASSWORD}" \
     "$TAK_CONTAINER" bash -c \
     'cd /opt/tak && java -jar utils/UserManager.jar usermod -A -p "$TAK_ADMIN_PASSWORD" "$TAK_ADMIN_USER"'
+fi
+
+echo "[tak-post-start] Provisioning standard client '${CLIENT_USER}'..."
+ensure_standard_client_cert "$CLIENT_USER"
+promote_standard_client_cert "$CLIENT_USER"
+if [[ -n "${CLIENT_PASSWORD:-}" ]]; then
+  docker exec \
+    -e "TAK_CLIENT_USER=${CLIENT_USER}" \
+    -e "TAK_CLIENT_PASSWORD=${CLIENT_PASSWORD}" \
+    "$TAK_CONTAINER" bash -c \
+    'cd /opt/tak && java -jar utils/UserManager.jar usermod -c "certs/files/${TAK_CLIENT_USER}.pem" -p "$TAK_CLIENT_PASSWORD" "$TAK_CLIENT_USER"'
+else
+  echo "WARNING: CLIENT_PASSWORD is empty; the standard client certificate works, but enrollment credentials were not set." >&2
 fi
 
 CERTS_DEST="${CERTS_HOME_DIR:-$ROOT/tak-certs}"
@@ -81,20 +107,11 @@ copy_certificate() {
 copy_certificate "admin.p12" "admin.p12"
 copy_certificate "${CERT_CA_CN:-TAK-CA-01}.pem" "ca.pem"
 
-# WinTAK and other PKCS#12 consumers need a .p12 truststore, not TAK's
-# internal JKS file. Convert a temporary copy without changing the volume.
-docker exec -e TAK_CERT_PASS="$CERT_PASS" "$TAK_CONTAINER" bash -c '
-  rm -f /tmp/truststore-root.p12
-  keytool -importkeystore -noprompt \
-    -srckeystore /opt/tak/certs/files/truststore-root.jks -srcstoretype JKS \
-    -srcstorepass "$TAK_CERT_PASS" \
-    -destkeystore /tmp/truststore-root.p12 -deststoretype PKCS12 \
-    -deststorepass "$TAK_CERT_PASS"
-'
-docker cp "$TAK_CONTAINER:/tmp/truststore-root.p12" "$CERTS_DEST/truststore-root.p12"
-docker exec "$TAK_CONTAINER" rm -f /tmp/truststore-root.p12
+copy_certificate "truststore-root.p12" "truststore-root.p12"
+copy_certificate "${CLIENT_USER}.p12" "${CLIENT_USER}.p12"
 
 chmod 600 "$CERTS_DEST/admin.p12" "$CERTS_DEST/truststore-root.p12"
+chmod 600 "$CERTS_DEST/${CLIENT_USER}.p12"
 chmod 644 "$CERTS_DEST/ca.pem"
 
 discover_aws_public_ip() {
@@ -146,13 +163,22 @@ else
   TAK_HOST_DISPLAY="${TAK_HOST_DISPLAY:-$(discover_external_ip || true)}"
   TAK_HOST_DISPLAY="${TAK_HOST_DISPLAY:-<public-IP>}"
 fi
+echo "----------------------------------------------------------------"
+echo
 echo "[tak-post-start] Connection material exported to $CERTS_DEST"
 echo
 echo "TAK Server is ready:"
 echo "  Certificate enrollment: https://${TAK_HOST_DISPLAY}:${HOST_PORT_CERT_HTTPS:-8446}"
-echo "    Sign in as '${ADMIN_USER}' with the ADMIN_PASSWORD from .env."
+echo "  Sign in as '${ADMIN_USER}' with the ADMIN_PASSWORD from .env."
+echo
 echo "  Same-host testing:      https://localhost:${HOST_PORT_CERT_HTTPS:-8446}"
-echo "  Web administration:    https://${TAK_HOST_DISPLAY}:${HOST_PORT_HTTPS:-8443}/Marti/"
-echo "    Import ${CERTS_DEST}/admin.p12 in your browser; its password is CERT_PASS from .env."
-echo "  Client trust material:  ${CERTS_DEST}/ca.pem and ${CERTS_DEST}/truststore-root.p12"
-echo "    truststore-root.p12 uses CERT_PASS from .env."
+
+echo "  Web administration:    https://${TAK_HOST_DISPLAY}:${HOST_PORT_HTTPS:-8443}"
+echo "  Import admin.p12 in your browser; its password is CERT_PASS from .env."
+
+echo "  Client trust material:"  
+echo "  ca.pem and truststore-root.p12"
+echo "  truststore-root.p12 uses CERT_PASS from .env."
+echo
+echo "  Standard TAK client:    ${CLIENT_USER}.p12 (password: CERT_PASS from .env)"
+echo "  Enrollment username:   '${CLIENT_USER}' (password: CLIENT_PASSWORD from .env)."

@@ -13,7 +13,7 @@ On a fresh Ubuntu 22.04, 24.04, or 26.04 server, install the prerequisites
 once using Docker's official APT repository setup:
 
 ```bash
-cd docker
+cd H2_TAK_Server_Docker/docker
 bash bootstrap-ubuntu.sh
 # Log out and back in before continuing, so Docker-group membership applies.
 ```
@@ -23,7 +23,7 @@ an existing Docker installation or conflicting packages. Review and handle an
 existing Docker host separately.
 
 ```bash
-cd docker
+cd H2_TAK_Server_Docker/docker
 cp env.example .env
 nano .env
 # Set secure CERT_PASS, DB_PASS, and ADMIN_PASSWORD values.
@@ -57,6 +57,42 @@ For an internet-facing enrollment endpoint, set `LE_ENABLE=true`, `LE_FQDN`,
 and `LE_EMAIL` in `.env`. The FQDN must resolve publicly to this host and TCP
 80 must be reachable for the HTTP-01 challenge. This only provides a public
 certificate for enrollment; TLS CoT uses the deployment TAK CA.
+
+## Standard client certificate bundle
+
+On first deployment, `CLIENT_USER` creates a standard, non-administrator
+client identity. Its certificate is exported as
+`docker/tak-certs/<CLIENT_USER>.p12`; for example,
+`docker/tak-certs/takuser1.p12`. The `.p12` password is `CERT_PASS`. This
+provides a repeatable ATAK/WinTAK smoke-test identity and a generated client
+certificate bundle for local demos.
+
+`CLIENT_PASSWORD` provisions the same username for certificate enrollment.
+Use a password of at least 15 characters containing uppercase, lowercase,
+number, and special characters. The standard certificate is a shared test
+credential: do not distribute it to real users. Real users should enroll with
+their own username/password and receive their own certificate.
+
+To create an additional normal client certificate after deployment, run from
+the `docker/` directory:
+
+```bash
+CLIENT_USER=takuser2
+read -rsp "Client password: " CLIENT_PASSWORD; echo
+
+docker exec -e TAK_CLIENT_USER="$CLIENT_USER" takserver bash -lc \
+  'cd /opt/tak/certs && ./makeCert.sh client "$TAK_CLIENT_USER"'
+docker exec -e TAK_CLIENT_USER="$CLIENT_USER" takserver bash -lc \
+  'cd /opt/tak && java -jar utils/UserManager.jar certmod "certs/files/${TAK_CLIENT_USER}.pem"'
+docker exec -e TAK_CLIENT_USER="$CLIENT_USER" -e TAK_CLIENT_PASSWORD="$CLIENT_PASSWORD" takserver bash -lc \
+  'cd /opt/tak && java -jar utils/UserManager.jar usermod -c "certs/files/${TAK_CLIENT_USER}.pem" -p "$TAK_CLIENT_PASSWORD" "$TAK_CLIENT_USER"'
+docker cp "takserver:/opt/tak/certs/files/${CLIENT_USER}.p12" "tak-certs/${CLIENT_USER}.p12"
+chmod 600 "tak-certs/${CLIENT_USER}.p12"
+```
+
+Use the client `.p12` with `ca.pem` or `truststore-root.p12`. The client
+certificate password is `CERT_PASS`; the separate `CLIENT_PASSWORD` is for
+certificate enrollment.
 
 ## Ports
 
