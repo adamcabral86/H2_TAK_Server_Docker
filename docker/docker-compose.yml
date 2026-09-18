@@ -41,6 +41,8 @@ services:
     volumes:
       - tak_config:/opt/tak
       - tak_db_data:/var/lib/postgresql/data
+    ports:
+      - "${HOST_PORT_DB:-5432}:5432"
     networks:
       tak:
         aliases: [tak-database]

@@ -105,8 +105,13 @@ certificate enrollment.
 | 8443 | TAK Web admin endpoint (mTLS) |
 | 8446 | Certificate enrollment and password endpoint |
 | 8444, 9000, 9001 | Federation, if enabled |
+| 5432 | PostgreSQL, for an external GeoServer connection |
 
 Change host-side mappings with the `HOST_PORT_*` values in `.env`.
+
+For an external GeoServer, allow inbound TCP 5432 in the AWS security group
+only from GeoServer's security group or private IP. Do not allow PostgreSQL
+from `0.0.0.0/0`.
 
 ## Stop or reset
 

@@ -14,4 +14,5 @@ fi
 
 docker compose --env-file "$ENV_FILE" -f "$ROOT/docker-compose.yml" pull
 docker compose --env-file "$ENV_FILE" -f "$ROOT/docker-compose.yml" up -d
+echo "[tak-deploy] Containers started. Waiting for TAK messaging and API services to become ready; first startup can take a few minutes..."
 bash "$ROOT/scripts/post-start.sh"
