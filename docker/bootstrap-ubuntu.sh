@@ -82,7 +82,7 @@ sudo docker version --format 'Server: {{.Server.Version}}'
 sudo docker compose version
 echo
 echo "Log out and back in before using Docker without sudo, then run:"
-echo "  cd docker"
+echo "  cd H2_TAK_Server_Docker/docker"
 echo "  cp env.example .env"
 echo "  bash deploy.sh"
 echo

@@ -27,6 +27,7 @@ docker cp "$TMP_DIR/takserver-le.p12" "$TAK_CONTAINER:/opt/tak/certs/files/takse
 docker exec -e TAK_CERT_PASS="$CERT_PASS" "$TAK_CONTAINER" bash -c '
   rm -f /opt/tak/certs/files/takserver-le.jks
   keytool -importkeystore -destkeystore /opt/tak/certs/files/takserver-le.jks \
+    -deststoretype JKS \
     -srckeystore /opt/tak/certs/files/takserver-le.p12 -srcstoretype pkcs12 \
     -deststorepass "$TAK_CERT_PASS" -destkeypass "$TAK_CERT_PASS" \
     -srcstorepass "$TAK_CERT_PASS" -noprompt
