@@ -65,13 +65,81 @@ if [[ -n "${ADMIN_PASSWORD:-}" ]]; then
     'cd /opt/tak && java -jar utils/UserManager.jar usermod -A -p "$TAK_ADMIN_PASSWORD" "$TAK_ADMIN_USER"'
 fi
 
-if [[ -n "${CERTS_HOME_DIR:-}" ]]; then
-  CERTS_DEST="$CERTS_HOME_DIR"
-else
-  CERTS_DEST="$HOME/takserver-certs"
-fi
+CERTS_DEST="${CERTS_HOME_DIR:-$ROOT/tak-certs}"
+umask 077
 mkdir -p "$CERTS_DEST"
-docker cp "$TAK_CONTAINER:/opt/tak/certs/files/." "$CERTS_DEST/"
-echo "[tak-post-start] Internal certificates exported to $CERTS_DEST"
+chmod 700 "$CERTS_DEST"
 
-echo "[tak-post-start] Done. Admin/enrollment endpoint: https://<host>:${HOST_PORT_CERT_HTTPS:-8446}"
+copy_certificate() {
+  local source="$1"
+  local destination="$2"
+  docker cp "$TAK_CONTAINER:/opt/tak/certs/files/$source" "$CERTS_DEST/$destination"
+}
+
+# Export only the administrator identity and client trust material. The service
+# identity remains in the container/volume and is never copied to the host.
+copy_certificate "admin.p12" "admin.p12"
+copy_certificate "${CERT_CA_CN:-TAK-CA-01}.pem" "ca.pem"
+
+# WinTAK and other PKCS#12 consumers need a .p12 truststore, not TAK's
+# internal JKS file. Convert a temporary copy without changing the volume.
+docker exec -e TAK_CERT_PASS="$CERT_PASS" "$TAK_CONTAINER" bash -c '
+  rm -f /tmp/truststore-root.p12
+  keytool -importkeystore -noprompt \
+    -srckeystore /opt/tak/certs/files/truststore-root.jks -srcstoretype JKS \
+    -srcstorepass "$TAK_CERT_PASS" \
+    -destkeystore /tmp/truststore-root.p12 -deststoretype PKCS12 \
+    -deststorepass "$TAK_CERT_PASS"
+'
+docker cp "$TAK_CONTAINER:/tmp/truststore-root.p12" "$CERTS_DEST/truststore-root.p12"
+docker exec "$TAK_CONTAINER" rm -f /tmp/truststore-root.p12
+
+chmod 600 "$CERTS_DEST/admin.p12" "$CERTS_DEST/truststore-root.p12"
+chmod 644 "$CERTS_DEST/ca.pem"
+
+discover_public_ip() {
+  # An explicit value is needed for hosts behind a proxy, load balancer, or
+  # NAT arrangement where the discovered address is not client-reachable.
+  if [[ -n "${PUBLIC_IP:-}" ]]; then
+    printf '%s\n' "$PUBLIC_IP"
+    return
+  fi
+
+  command -v curl >/dev/null 2>&1 || return
+
+  # AWS IMDSv2 is link-local and does not leave the instance. Short timeouts
+  # keep this best-effort display helper from delaying deployment elsewhere.
+  local imds_token imds_ip external_ip
+  imds_token="$(curl -fsS --connect-timeout 1 --max-time 2 \
+    -X PUT http://169.254.169.254/latest/api/token \
+    -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' 2>/dev/null || true)"
+  if [[ -n "$imds_token" ]]; then
+    imds_ip="$(curl -fsS --connect-timeout 1 --max-time 2 \
+      -H "X-aws-ec2-metadata-token: $imds_token" \
+      http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null || true)"
+    if [[ -n "$imds_ip" ]]; then
+      printf '%s\n' "$imds_ip"
+      return
+    fi
+  fi
+
+  external_ip="$(curl -fsS --connect-timeout 2 --max-time 5 \
+    https://checkip.amazonaws.com 2>/dev/null | tr -d '[:space:]' || true)"
+  [[ -n "$external_ip" ]] && printf '%s\n' "$external_ip"
+}
+
+if [[ -n "${LE_FQDN:-}" ]]; then
+  TAK_HOST_DISPLAY="$LE_FQDN"
+else
+  TAK_HOST_DISPLAY="$(discover_public_ip || true)"
+  TAK_HOST_DISPLAY="${TAK_HOST_DISPLAY:-<public-IP>}"
+fi
+echo "[tak-post-start] Connection material exported to $CERTS_DEST"
+echo
+echo "TAK Server is ready:"
+echo "  Certificate enrollment: https://${TAK_HOST_DISPLAY}:${HOST_PORT_CERT_HTTPS:-8446}"
+echo "    Sign in as '${ADMIN_USER}' with the ADMIN_PASSWORD from .env."
+echo "  Web administration:    https://${TAK_HOST_DISPLAY}:${HOST_PORT_HTTPS:-8443}/Marti/"
+echo "    Import ${CERTS_DEST}/admin.p12 in your browser; its password is CERT_PASS from .env."
+echo "  Client trust material:  ${CERTS_DEST}/ca.pem and ${CERTS_DEST}/truststore-root.p12"
+echo "    truststore-root.p12 uses CERT_PASS from .env."

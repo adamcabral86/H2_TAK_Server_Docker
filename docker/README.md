@@ -45,6 +45,11 @@ Let's Encrypt, import the deployment's public TAK CA into the Windows/WinTAK
 trust store, then enroll using the host LAN IP or DNS name on port 8446.
 `localhost` works only on the same computer.
 
+After deployment, the startup instructions use `LE_FQDN` when set. Otherwise
+they try the AWS EC2 IMDSv2 public IPv4 address and then
+`checkip.amazonaws.com`. Set `PUBLIC_IP` to override that display value when a
+proxy, load balancer, or NAT makes automatic discovery unsuitable.
+
 For an internet-facing enrollment endpoint, set `LE_ENABLE=true`, `LE_FQDN`,
 and `LE_EMAIL` in `.env`. The FQDN must resolve publicly to this host and TCP
 80 must be reachable for the HTTP-01 challenge. This only provides a public
@@ -80,9 +85,11 @@ docker volume rm tak_config tak_db_data
 Use the configured `TAK_CONFIG_VOLUME` and `DB_VOLUME` names if you changed
 them. A reset requires every client to enroll again.
 
-The deployment exports internal `admin` and `gateway-svc` certificates to
-`~/takserver-certs` by default (or `CERTS_HOME_DIR`). They are only for server
-administration and integrations; never give them to end users.
+After startup, the deployment exports `admin.p12`, `ca.pem`, and
+`truststore-root.p12` to `docker/tak-certs/` by default (or `CERTS_HOME_DIR`).
+`admin.p12` is for server administration only; never give it to end users.
+Use `ca.pem` or `truststore-root.p12` to establish client trust for the
+deployment TAK CA; the truststore password is `CERT_PASS`.
 
 ## Publishing images
 
